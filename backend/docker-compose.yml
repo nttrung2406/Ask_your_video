@@ -1,0 +1,61 @@
+services:
+  session-redis:
+    image: redis:8-alpine
+    container_name: session-redis
+    hostname: session-redis
+    ports:
+      - "8084:6379"
+    volumes:
+      - session-redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app_network
+  
+  app:
+    #image: ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG:-latest}
+    build: .
+    container_name: video-reasoning-app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-O", "/dev/null", "-q", "http://localhost:8082/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./:/app
+      - video_uploads:/app/uploads
+    environment:
+      - REDIS_URL=redis://session-redis:6379
+      - MODEL_SERVICE_URL=http://video_reasoning_model:8081
+      - UPLOAD_DIR=/app/uploads
+      - CACHE_TTL_HOURS=24
+    networks:
+      - app_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - session-redis
+  
+volumes:
+  session-redis-data:
+    name: session-redis-data
+    driver: local
+  video_uploads:
+    name: video_uploads
+    driver: local
+
+networks:
+  app_network:
+    name: app_network
+    external: true
+
