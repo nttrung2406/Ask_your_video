@@ -1,0 +1,35 @@
+# Video Processing
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+
+# Audio Processing
+pydub>=0.25.1
+
+# Vision Language Model (Moondream2)
+torch>=2.1.0
+torchvision>=0.16.0
+transformers>=4.36.0,<4.44.0
+accelerate>=0.25.0
+bitsandbytes>=0.41.0
+einops>=0.7.0
+pillow>=10.0.0
+
+# LLM Integration
+llama-cpp-python>=0.2.20
+
+# API Server
+fastapi>=0.109.0
+uvicorn>=0.25.0
+python-multipart>=0.0.6
+pydantic>=2.5.0
+
+# Utilities
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+loguru>=0.7.0
+httpx>=0.26.0
+aiofiles>=23.2.0
+
+# SRT/Subtitle parsing
+srt>=3.5.0
+pyvips

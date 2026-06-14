@@ -1,0 +1,64 @@
+services:
+  model:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video_reasoning_model
+    volumes:
+      # Persist models directory
+      - model_data:/app/models
+      # Mount data directory for video inputs
+      - ./data:/app/data
+      # Mount output directory
+      - ./output:/app/output
+      # Mount code for development (optional)
+      - ./pipeline:/app/pipeline
+      - ./utils:/app/utils
+      - ./model_resource:/app/model_resource
+      # Shared uploads volume with backend
+      - video_uploads:/app/data/uploads
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MODEL_CACHE_DIR=/app/models
+      - WHISPER_MODEL=base
+      - LLAMA_MODEL_PATH=/app/model_resource/DeepSeek-R1-Distill-Qwen-7B-Q3_K_M.gguf
+      - MOONDREAM_PRECISION=4bit
+      - LOG_LEVEL=INFO
+      # KV Cache settings for llama-server
+      - LLM_SERVER_URL=http://localhost:8080
+      - LLM_CONTEXT_SIZE=8192
+      - LLM_N_SLOTS=4
+      - LLM_CACHE_TYPE_K=q8_0
+      - LLM_CACHE_TYPE_V=q8_0
+      - LLM_N_GPU_LAYERS=0
+      - TARGET_FPS=5  # Set target FPS for keyframe extraction
+    ports:
+      - "8081:8081"
+    # For GPU support (uncomment if NVIDIA GPU available)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - app_network
+
+volumes:
+  model_data:
+    driver: local
+  video_uploads:
+    name: video_uploads
+    external: true
+
+networks:
+  app_network:
+    name: app_network
+    external: true
