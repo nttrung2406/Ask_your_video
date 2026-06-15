@@ -22,7 +22,6 @@ class ReasoningServicePort(ABC):
         self,
         session_id: str,
         question: str,
-        vlm_prompt: Optional[str] = None
     ) -> ReasoningAnswer:
         """
         Ask a question about a preprocessed video.
@@ -30,7 +29,6 @@ class ReasoningServicePort(ABC):
         Args:
             session_id: Session ID from video preprocessing
             question: The question to answer
-            vlm_prompt: Optional custom VLM prompt
             
         Returns:
             ReasoningAnswer object
