@@ -48,7 +48,7 @@ class ModelServiceAdapter(ModelServicePort):
             logger.info(f"Video uploaded to model service: {result}")
             return result
     
-    async def preprocess_video(self, video_path: str, session_id: str) -> PreprocessingResult:
+    async def preprocess_video(self, video_path: str, session_id: str, vlm_prompt: Optional[str] = None) -> PreprocessingResult:
         """Preprocess a video using the model service."""
         client = await self._get_client()
 
@@ -58,6 +58,9 @@ class ModelServiceAdapter(ModelServicePort):
             "video_path": model_video_path,
             "session_id": session_id,
         }
+        
+        if vlm_prompt:
+            payload["vlm_prompt"] = vlm_prompt
         
         logger.info(f"Sending preprocess request to model service: {payload}")
         
@@ -98,7 +101,6 @@ class ModelServiceAdapter(ModelServicePort):
         self,
         session_id: str,
         question: str,
-        vlm_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Ask a question about a preprocessed video."""
         client = await self._get_client()
@@ -107,8 +109,6 @@ class ModelServiceAdapter(ModelServicePort):
             "session_id": session_id,
             "question": question,
         }
-        if vlm_prompt:
-            payload["vlm_prompt"] = vlm_prompt
         
         response = await client.post("/ask", json=payload)
         response.raise_for_status()
