@@ -1,8 +1,3 @@
-"""
-Pipeline Controller
-Main orchestrator that combines all phases
-"""
-
 import os
 import json
 from pathlib import Path
@@ -185,8 +180,8 @@ class PipelineController:
         session_id: Optional[str] = None
     ) -> PreprocessingResult:
         """
-        Run only the preprocessing phase.
-        Useful for preparing video before asking questions.
+        Run only the preprocessing phase (Phase 1 only).
+        For basic video preparation without translation.
         
         Args:
             video_path: Path to video file
@@ -196,6 +191,78 @@ class PipelineController:
             PreprocessingResult object
         """
         return self.preprocessor.process(video_path, session_id)
+    
+    def preprocess_full(
+        self,
+        video_path: str,
+        session_id: Optional[str] = None,
+        custom_vlm_prompt: Optional[str] = None,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None
+    ) -> Dict[str, Any]:
+        """
+        Run full preprocessing: Phase 1 (preprocessing), Phase 2 (translation), 
+        and Phase 3 (aggregation).
+        
+        This prepares the video completely so that asking questions only
+        requires Phase 4 (reasoning), making responses much faster.
+        
+        Args:
+            video_path: Path to video file
+            session_id: Optional session ID
+            custom_vlm_prompt: Optional custom VLM prompt for frame captioning
+            progress_callback: Optional callback(phase, current, total)
+            
+        Returns:
+            Dictionary containing:
+                - preprocessing_result: PreprocessingResult
+                - translation_result: TranslationResult
+                - timeline: AggregatedTimeline
+        """
+        logger.info(f"Starting full preprocessing for video: {video_path}")
+        
+        # Phase 1: Preprocessing (audio + keyframe extraction)
+        if progress_callback:
+            progress_callback("preprocessing", 0, 1)
+        
+        preprocessing_result = self.preprocessor.process(video_path, session_id)
+        
+        if progress_callback:
+            progress_callback("preprocessing", 1, 1)
+        
+        # Phase 2: Translation (audio transcription + frame captioning)
+        def translation_progress(current, total):
+            if progress_callback:
+                progress_callback("translation", current, total)
+        
+        translation_result = self.translator.translate(
+            preprocessing_result.audio_path,
+            preprocessing_result.frames,
+            preprocessing_result.output_dir,
+            custom_vlm_prompt=custom_vlm_prompt,
+            language=self.config.audio_language,
+            progress_callback=translation_progress
+        )
+        
+        # Phase 3: Aggregation (combine into timeline)
+        if progress_callback:
+            progress_callback("aggregation", 0, 1)
+        
+        timeline = self.aggregator.aggregate(
+            translation_result.audio_segments,
+            translation_result.frame_captions,
+            preprocessing_result.video_info.get("duration")
+        )
+        
+        if progress_callback:
+            progress_callback("aggregation", 1, 1)
+        
+        logger.info(f"Full preprocessing complete. Timeline has {len(timeline.entries)} entries.")
+        
+        return {
+            "preprocessing_result": preprocessing_result,
+            "translation_result": translation_result,
+            "timeline": timeline
+        }
     
     def translate_only(
         self,
