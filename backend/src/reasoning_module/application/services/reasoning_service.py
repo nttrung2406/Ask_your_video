@@ -1,8 +1,3 @@
-"""
-Reasoning Application Service
-Orchestrates reasoning operations for video Q&A.
-"""
-
 from datetime import datetime
 from typing import Optional, Dict, Any
 from loguru import logger
@@ -57,7 +52,6 @@ class ReasoningService:
         self,
         session_id: str,
         question: str,
-        vlm_prompt: Optional[str] = None
     ) -> ReasoningAnswer:
         """
         Ask a question about a preprocessed video.
@@ -65,7 +59,6 @@ class ReasoningService:
         Args:
             session_id: Video session ID
             question: The question to answer
-            vlm_prompt: Optional custom VLM prompt
             
         Returns:
             ReasoningAnswer object
@@ -98,7 +91,6 @@ class ReasoningService:
             answer = await self.reasoning_service.ask_question(
                 session_id=session_id,
                 question=question,
-                vlm_prompt=vlm_prompt
             )
             
             # Calculate processing time
