@@ -15,12 +15,36 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Cleanup aborted."
     exit 0
 fi
-# Remove model_resource directory
+# Remove specific model resources (llama, whisper, and gguf models)
 if [ -d "${MODEL_RESOURCE_DIR}" ]; then
-    echo "Removing model_resource directory..."
+    echo "Removing model resources (llama, whisper, gguf)..."
     echo "(May require sudo for Docker-created files)"
-    sudo rm -rf "${MODEL_RESOURCE_DIR}"
-    echo "model_resource: Removed"
+    
+    # Remove llama directory
+    if [ -d "${MODEL_RESOURCE_DIR}/llama.cpp" ]; then
+        sudo rm -rf "${MODEL_RESOURCE_DIR}/llama.cpp"
+        echo "  llama: Removed"
+    else
+        echo "  llama: Not found, skipping"
+    fi
+    
+    # Remove whisper directory
+    if [ -d "${MODEL_RESOURCE_DIR}/whisper.cpp" ]; then
+        sudo rm -rf "${MODEL_RESOURCE_DIR}/whisper.cpp"
+        echo "  whisper: Removed"
+    else
+        echo "  whisper: Not found, skipping"
+    fi
+    
+    # Remove gguf model files
+    if compgen -G "${MODEL_RESOURCE_DIR}/*.gguf" > /dev/null; then
+        sudo rm -f "${MODEL_RESOURCE_DIR}"/*.gguf
+        echo "  gguf models: Removed"
+    else
+        echo "  gguf models: Not found, skipping"
+    fi
+    
+    echo "model_resource: Cleaned"
 else
     echo "model_resource: Not found, skipping"
 fi
