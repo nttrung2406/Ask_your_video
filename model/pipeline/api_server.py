@@ -72,6 +72,7 @@ class PreprocessRequest(BaseModel):
     """Request to preprocess a video."""
     video_path: str
     session_id: Optional[str] = None
+    vlm_prompt: Optional[str] = None  # Custom prompt for frame captioning
 
 
 class PreprocessResponse(BaseModel):
@@ -88,7 +89,6 @@ class AskQuestionRequest(BaseModel):
     """Request to ask a question about a preprocessed video."""
     session_id: str
     question: str
-    vlm_prompt: Optional[str] = None
 
 
 class AskQuestionResponse(BaseModel):
@@ -158,8 +158,14 @@ async def process_video(request: ProcessVideoRequest):
 @app.post("/preprocess", response_model=PreprocessResponse)
 async def preprocess_video(request: PreprocessRequest):
     """
-    Preprocess a video without asking a question.
-    This extracts audio and keyframes for later use.
+    Preprocess a video completely (Phase 1-3).
+    This runs:
+    - Phase 1: Audio + keyframe extraction
+    - Phase 2: Audio transcription + frame captioning (translation)
+    - Phase 3: Timeline aggregation
+    
+    After preprocessing, asking questions only requires reasoning (Phase 4),
+    which is much faster.
     """
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
@@ -172,25 +178,43 @@ async def preprocess_video(request: PreprocessRequest):
     
     try:
         loop = asyncio.get_event_loop()
+        
+        # Run full preprocessing (Phase 1 + 2 + 3)
         result = await loop.run_in_executor(
             None,
-            lambda: pipeline.preprocess_only(str(video_path), session_id)
+            lambda: pipeline.preprocess_full(
+                str(video_path), 
+                session_id,
+                custom_vlm_prompt=request.vlm_prompt
+            )
         )
         
-        # Store session data
+        preprocessing_result = result["preprocessing_result"]
+        translation_result = result["translation_result"]
+        timeline = result["timeline"]
+        
+        # Store session data with translation and timeline already done
         sessions[session_id] = {
-            "preprocessing_result": result,
-            "translation_result": None,
-            "timeline": None
+            "preprocessing_result": preprocessing_result,
+            "translation_result": translation_result,
+            "timeline": timeline
         }
+        
+        # Save timeline text file for caching
+        text_file_path = _save_timeline_text_file(
+            session_id,
+            str(video_path),
+            timeline.timeline_text
+        )
+        sessions[session_id]["timeline_text_path"] = text_file_path
         
         return PreprocessResponse(
             session_id=session_id,
             video_path=str(video_path),
-            audio_path=result.audio_path,
-            frame_count=len(result.frames),
-            video_info=result.video_info,
-            output_dir=result.output_dir
+            audio_path=preprocessing_result.audio_path,
+            frame_count=len(preprocessing_result.frames),
+            video_info=preprocessing_result.video_info,
+            output_dir=preprocessing_result.output_dir
         )
         
     except Exception as e:
@@ -219,6 +243,9 @@ async def ask_question(request: AskQuestionRequest):
     """
     Ask a question about a preprocessed video.
     Requires a valid session_id from preprocessing.
+    
+    Since preprocessing now includes translation and aggregation,
+    this endpoint only runs reasoning (Phase 4), making it much faster.
     Uses KV cache for efficient repeated questioning.
     """
     if pipeline is None:
@@ -228,41 +255,18 @@ async def ask_question(request: AskQuestionRequest):
         raise HTTPException(status_code=404, detail=f"Session not found: {request.session_id}")
     
     session = sessions[request.session_id]
-    preprocessing_result = session["preprocessing_result"]
+    timeline = session.get("timeline")
+    
+    if timeline is None:
+        raise HTTPException(
+            status_code=400, 
+            detail="Video not fully preprocessed. Timeline not available. Please preprocess the video first."
+        )
     
     try:
         loop = asyncio.get_event_loop()
         
-        # Run translation if not already done
-        if session["translation_result"] is None:
-            translation_result = await loop.run_in_executor(
-                None,
-                lambda: pipeline.translate_only(
-                    preprocessing_result,
-                    custom_vlm_prompt=request.vlm_prompt
-                )
-            )
-            session["translation_result"] = translation_result
-            
-            # Aggregate timeline
-            timeline = pipeline.aggregator.aggregate(
-                translation_result.audio_segments,
-                translation_result.frame_captions,
-                preprocessing_result.video_info.get("duration")
-            )
-            session["timeline"] = timeline
-            
-            # Save timeline text file for caching
-            text_file_path = _save_timeline_text_file(
-                request.session_id,
-                preprocessing_result.video_path,
-                timeline.timeline_text
-            )
-            session["timeline_text_path"] = text_file_path
-        
-        timeline = session["timeline"]
-        
-        # Run reasoning with KV cache support
+        # Run reasoning only (Phase 4) - translation and aggregation already done
         reasoning_result = await loop.run_in_executor(
             None,
             lambda: pipeline.reason_only(timeline, request.question)
