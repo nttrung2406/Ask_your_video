@@ -43,12 +43,12 @@ class ModelServicePort(ABC):
     
     @abstractmethod
     async def preprocess_video(self, video_path: str, session_id: str, vlm_prompt: Optional[str] = None) -> PreprocessingResult:
-        \"\"\"Preprocess a video (extract audio, keyframes, translate, aggregate).\"\"\"
+       
         pass
     
     @abstractmethod
     async def ask_question(self, session_id: str, question: str) -> Dict[str, Any]:
-        \"\"\"Ask a question about a preprocessed video (reasoning only).\"\"\"
+       
         pass
     
     @abstractmethod
