@@ -54,7 +54,6 @@ class ModelServiceReasoningAdapter(ReasoningServicePort):
         self,
         session_id: str,
         question: str,
-        vlm_prompt: Optional[str] = None
     ) -> ReasoningAnswer:
         """
         Ask a question about a preprocessed video.
@@ -68,8 +67,6 @@ class ModelServiceReasoningAdapter(ReasoningServicePort):
             "session_id": session_id,
             "question": question
         }
-        if vlm_prompt:
-            payload["vlm_prompt"] = vlm_prompt
         
         logger.info(f"Sending question to model service: session={session_id}")
         
