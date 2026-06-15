@@ -115,7 +115,6 @@ class VideoService:
         self,
         session_id: str,
         question: str,
-        vlm_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Ask a question about a preprocessed video."""
         session = await self.cache.get_session(session_id)
@@ -129,7 +128,6 @@ class VideoService:
         result = await self.model_service.ask_question(
             session_id=session.model_session_id or session_id,
             question=question,
-            vlm_prompt=vlm_prompt,
         )
         
         # Update session status
