@@ -1,8 +1,3 @@
-"""
-Reasoning HTTP Controller (API endpoints)
-Handles video Q&A requests with KV cache optimization.
-"""
-
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -26,7 +21,6 @@ def set_reasoning_service(service: ReasoningService):
 class AskQuestionRequest(BaseModel):
     """Request to ask a question about a video."""
     question: str = Field(..., description="The question to ask about the video")
-    vlm_prompt: Optional[str] = Field(None, description="Optional custom VLM prompt")
 
 
 class AskQuestionResponse(BaseModel):
@@ -76,7 +70,7 @@ async def ask_question(session_id: str, request: AskQuestionRequest):
     
     Args:
         session_id: The video session ID from preprocessing
-        request: The question and optional VLM prompt
+        request: The question to ask
         
     Returns:
         AskQuestionResponse with the answer and metadata
@@ -88,7 +82,6 @@ async def ask_question(session_id: str, request: AskQuestionRequest):
         answer = await reasoning_service.ask_question(
             session_id=session_id,
             question=request.question,
-            vlm_prompt=request.vlm_prompt
         )
         
         return AskQuestionResponse(
